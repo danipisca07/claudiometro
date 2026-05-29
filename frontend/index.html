@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="it">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Claudiometro</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header>
+      <h1>Claudiometro</h1>
+      <div class="toolbar">
+        <span id="status" class="status"></span>
+        <button id="refreshBtn">Aggiorna</button>
+        <button id="pingBtn">Ping Haiku (avvia 5h)</button>
+      </div>
+    </header>
+
+    <main>
+      <section class="card" id="card-5h">
+        <h2>Finestra 5 ore</h2>
+        <div class="bar"><div class="bar-fill" id="fill-5h"></div></div>
+        <div class="row">
+          <span class="util" id="util-5h">--%</span>
+          <span class="reset" id="reset-5h">reset --</span>
+        </div>
+      </section>
+
+      <section class="card" id="card-weekly">
+        <h2>Finestra settimanale (7 giorni)</h2>
+        <div class="bar"><div class="bar-fill" id="fill-weekly"></div></div>
+        <div class="row">
+          <span class="util" id="util-weekly">--%</span>
+          <span class="reset" id="reset-weekly">reset --</span>
+        </div>
+      </section>
+
+      <section class="card" id="card-extra" hidden>
+        <h2>Crediti extra</h2>
+        <div class="bar"><div class="bar-fill" id="fill-extra"></div></div>
+        <div class="row">
+          <span class="util" id="util-extra">--%</span>
+          <span class="reset" id="extra-detail"></span>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <span id="api-base-label"></span>
+      <span id="updated"></span>
+    </footer>
+
+    <script src="config.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
