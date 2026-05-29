@@ -44,18 +44,30 @@ function authHeaders(token: string): Record<string, string> {
   };
 }
 
-export async function getUsage(token: string): Promise<RawUsage> {
-  const res = await fetch(`${BASE_URL}/api/oauth/usage`, {
-    headers: authHeaders(token),
-  });
+// Esegue una richiesta verso l'API Anthropic e ne ritorna il JSON,
+// trasformando le risposte non-2xx in UpstreamError.
+async function request<T>(
+  path: string,
+  init: RequestInit,
+  label: string,
+): Promise<T> {
+  const res = await fetch(`${BASE_URL}${path}`, init);
   const text = await res.text();
   if (!res.ok) {
     throw new UpstreamError(
       res.status,
-      `Errore endpoint usage (${res.status}): ${text.slice(0, 300)}`,
+      `${label} (${res.status}): ${text.slice(0, 300)}`,
     );
   }
-  return JSON.parse(text) as RawUsage;
+  return JSON.parse(text) as T;
+}
+
+export async function getUsage(token: string): Promise<RawUsage> {
+  return request<RawUsage>(
+    "/api/oauth/usage",
+    { headers: authHeaders(token) },
+    "Errore endpoint usage",
+  );
 }
 
 export interface PingResult {
@@ -65,27 +77,23 @@ export interface PingResult {
 }
 
 export async function ping(token: string): Promise<PingResult> {
-  const res = await fetch(`${BASE_URL}/v1/messages`, {
-    method: "POST",
-    headers: authHeaders(token),
-    body: JSON.stringify({
-      model: HAIKU_MODEL,
-      max_tokens: 1,
-      system: "You are Claude Code, Anthropic's official CLI for Claude.",
-      messages: [{ role: "user", content: "ping" }],
-    }),
-  });
-  const text = await res.text();
-  if (!res.ok) {
-    throw new UpstreamError(
-      res.status,
-      `Errore ping (${res.status}): ${text.slice(0, 300)}`,
-    );
-  }
-  const data = JSON.parse(text) as {
+  const data = await request<{
     id: string;
     model: string;
     stop_reason: string | null;
-  };
+  }>(
+    "/v1/messages",
+    {
+      method: "POST",
+      headers: authHeaders(token),
+      body: JSON.stringify({
+        model: HAIKU_MODEL,
+        max_tokens: 1,
+        system: "You are Claude Code, Anthropic's official CLI for Claude.",
+        messages: [{ role: "user", content: "ping" }],
+      }),
+    },
+    "Errore ping",
+  );
   return { id: data.id, model: data.model, stop_reason: data.stop_reason };
 }

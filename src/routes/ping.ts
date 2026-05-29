@@ -1,12 +1,7 @@
 import { Router, type Request, type Response, type NextFunction } from "express";
 import { getValidAccessToken } from "../credentials.js";
 import { ping, getUsage } from "../anthropic.js";
-import {
-  schedulePing,
-  listScheduled,
-  cancelScheduled,
-  ScheduleError,
-} from "../scheduler.js";
+import { schedulePing, listScheduled, cancelScheduled } from "../scheduler.js";
 
 export const pingRouter = Router();
 
@@ -44,21 +39,15 @@ pingRouter.post("/ping", async (req: Request, res: Response, next: NextFunction)
       return;
     }
 
-    try {
-      const item = await schedulePing(runAt);
-      res.status(202).json({
-        pinged: false,
-        scheduled: true,
-        id: item.id,
-        run_at: item.run_at,
-      });
-    } catch (e) {
-      if (e instanceof ScheduleError) {
-        res.status(400).json({ error: e.message });
-        return;
-      }
-      throw e;
-    }
+    // Una ScheduleError (es. oltre il limite di 3gg) viene mappata a 400
+    // dall'error handler centrale tramite next(err).
+    const item = await schedulePing(runAt);
+    res.status(202).json({
+      pinged: false,
+      scheduled: true,
+      id: item.id,
+      run_at: item.run_at,
+    });
   } catch (err) {
     next(err);
   }

@@ -6,12 +6,12 @@ import express, {
   type NextFunction,
 } from "express";
 import { config } from "./config.js";
-import { TokenExpiredError } from "./credentials.js";
+import { TokenExpiredError, CredentialsValidationError } from "./credentials.js";
 import { UpstreamError } from "./anthropic.js";
 import { usageRouter } from "./routes/usage.js";
 import { pingRouter } from "./routes/ping.js";
 import { adminRouter } from "./routes/admin.js";
-import { initScheduler } from "./scheduler.js";
+import { initScheduler, ScheduleError } from "./scheduler.js";
 
 const app = express();
 app.use(express.json());
@@ -44,18 +44,19 @@ const frontendDir = path.join(
 );
 app.use(express.static(frontendDir));
 
-// Centralized error handler.
+// Gestione centralizzata degli errori: mappa ogni errore di dominio sul suo
+// status HTTP. Le route si limitano a propagare con next(err).
+const errorStatus = (err: unknown): number => {
+  if (err instanceof TokenExpiredError) return 401;
+  if (err instanceof CredentialsValidationError) return 400;
+  if (err instanceof ScheduleError) return 400;
+  if (err instanceof UpstreamError) return 502;
+  return 500;
+};
+
 app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
-  if (err instanceof TokenExpiredError) {
-    res.status(401).json({ error: err.message });
-    return;
-  }
-  if (err instanceof UpstreamError) {
-    res.status(502).json({ error: err.message });
-    return;
-  }
   const message = err instanceof Error ? err.message : "Errore interno";
-  res.status(500).json({ error: message });
+  res.status(errorStatus(err)).json({ error: message });
 });
 
 initScheduler().catch((err) => {
