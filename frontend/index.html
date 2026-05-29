@@ -11,6 +11,14 @@
       <h1>Claudiometro</h1>
       <div class="toolbar">
         <span id="status" class="status"></span>
+        <label class="sched-field">
+          <span>quando</span>
+          <input
+            type="datetime-local"
+            id="schedule-at"
+            title="Vuoto = invia subito. Max 3 giorni nel futuro."
+          />
+        </label>
         <button id="refreshBtn">Aggiorna</button>
         <button id="pingBtn">Ping Haiku (avvia 5h)</button>
       </div>
@@ -42,6 +50,11 @@
           <span class="util" id="util-extra">--%</span>
           <span class="reset" id="extra-detail"></span>
         </div>
+      </section>
+
+      <section class="card card-wide" id="card-scheduled" hidden>
+        <h2>Ping programmati</h2>
+        <ul class="sched-list" id="scheduled-list"></ul>
       </section>
     </main>
 

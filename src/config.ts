@@ -1,5 +1,6 @@
 import os from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import "dotenv/config";
 
 function bool(v: string | undefined): boolean {
@@ -7,17 +8,30 @@ function bool(v: string | undefined): boolean {
   return ["1", "true", "yes", "on"].includes(v.toLowerCase());
 }
 
+const moduleDir = path.dirname(fileURLToPath(import.meta.url));
+
 export const config = {
   port: Number(process.env.PORT) || 4317,
   disableRefresh: bool(process.env.DISABLE_REFRESH),
   claudeConfigDir:
     process.env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), ".claude"),
+  // Cartella dove persistere lo stato runtime (ping programmati).
+  dataDir:
+    process.env.CLAUDIOMETRO_DATA_DIR || path.join(moduleDir, "..", "data"),
 };
 
 export const credentialsPath = path.join(
   config.claudeConfigDir,
   ".credentials.json",
 );
+
+export const scheduledPingsPath = path.join(
+  config.dataDir,
+  "scheduled-pings.json",
+);
+
+// Massimo orizzonte di schedulazione di un ping: 3 giorni.
+export const MAX_SCHEDULE_MS = 3 * 24 * 60 * 60 * 1000;
 
 // Anthropic / Claude Code OAuth constants
 export const BASE_URL = "https://api.anthropic.com";

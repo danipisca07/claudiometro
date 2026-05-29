@@ -81,6 +81,54 @@ main {
   transition: width 0.4s ease, background 0.3s;
 }
 
+.sched-field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.sched-field input {
+  background: var(--card);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 8px;
+  font-size: 13px;
+  color-scheme: dark;
+}
+
+.card-wide { grid-column: 1 / -1; }
+
+.sched-list { list-style: none; margin: 0; padding: 0; }
+.sched-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+.sched-item:last-child { border-bottom: none; }
+.sched-when { font-size: 14px; }
+.sched-badge {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
+.sched-pending { color: var(--warn); border-color: var(--warn); }
+.sched-done { color: var(--ok); border-color: var(--ok); }
+.sched-failed { color: var(--danger); border-color: var(--danger); }
+.sched-canceled { color: var(--muted); }
+.sched-cancel {
+  margin-left: auto;
+  padding: 4px 10px;
+  font-size: 12px;
+}
+
 .row {
   display: flex;
   justify-content: space-between;

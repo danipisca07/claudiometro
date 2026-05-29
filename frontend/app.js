@@ -75,25 +75,137 @@ async function loadUsage() {
   }
 }
 
-async function doPing() {
-  const btn = $("pingBtn");
-  btn.disabled = true;
-  const prev = btn.textContent;
-  btn.textContent = "Ping in corso...";
+function fmtDateTime(iso) {
+  return new Date(iso).toLocaleString("it-IT", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+const STATUS_LABEL = {
+  pending: "in attesa",
+  done: "inviato",
+  failed: "fallito",
+  canceled: "annullato",
+};
+
+function renderScheduled(list) {
+  const card = $("card-scheduled");
+  const ul = $("scheduled-list");
+  if (!list || list.length === 0) {
+    card.hidden = true;
+    ul.innerHTML = "";
+    return;
+  }
+  card.hidden = false;
+  ul.innerHTML = "";
+  for (const item of list) {
+    const li = document.createElement("li");
+    li.className = "sched-item";
+
+    const info = document.createElement("span");
+    info.className = "sched-when";
+    info.textContent = fmtDateTime(item.run_at);
+
+    const badge = document.createElement("span");
+    badge.className = "sched-badge sched-" + item.status;
+    badge.textContent = STATUS_LABEL[item.status] || item.status;
+    if (item.status === "failed" && item.error) badge.title = item.error;
+
+    li.append(info, badge);
+
+    if (item.status === "pending") {
+      const cancel = document.createElement("button");
+      cancel.className = "sched-cancel";
+      cancel.textContent = "Annulla";
+      cancel.addEventListener("click", () => cancelScheduled(item.id, cancel));
+      li.append(cancel);
+    }
+    ul.append(li);
+  }
+}
+
+async function loadScheduled() {
   try {
-    const res = await fetch(`${API_BASE}/ping`, { method: "POST" });
+    const res = await fetch(`${API_BASE}/ping/scheduled`);
+    if (!res.ok) return;
+    const data = await res.json();
+    renderScheduled(data.scheduled);
+  } catch {
+    /* lista non critica: ignora errori di rete transitori */
+  }
+}
+
+async function cancelScheduled(id, btn) {
+  btn.disabled = true;
+  try {
+    const res = await fetch(`${API_BASE}/ping/scheduled/${id}`, {
+      method: "DELETE",
+    });
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
       throw new Error(body.error || `HTTP ${res.status}`);
     }
-    setStatus("ping inviato — finestra 5h avviata");
-    await loadUsage();
+    setStatus("ping programmato annullato");
+    await loadScheduled();
   } catch (err) {
-    setStatus("ping fallito: " + err.message, true);
+    setStatus("annullamento fallito: " + err.message, true);
+    btn.disabled = false;
+  }
+}
+
+async function doPing() {
+  const btn = $("pingBtn");
+  btn.disabled = true;
+  const prev = btn.textContent;
+
+  const atRaw = $("schedule-at").value;
+  const body = {};
+  if (atRaw) {
+    // datetime-local è ora locale senza fuso: new Date() la interpreta come locale.
+    body.at = new Date(atRaw).toISOString();
+  }
+  const isScheduled = !!body.at;
+  btn.textContent = isScheduled ? "Programmazione..." : "Ping in corso...";
+
+  try {
+    const res = await fetch(`${API_BASE}/ping`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      const errBody = await res.json().catch(() => ({}));
+      throw new Error(errBody.error || `HTTP ${res.status}`);
+    }
+    const data = await res.json();
+    if (data.scheduled) {
+      setStatus("ping programmato per " + fmtDateTime(data.run_at));
+      $("schedule-at").value = "";
+      await loadScheduled();
+    } else {
+      setStatus("ping inviato — finestra 5h avviata");
+      await loadUsage();
+    }
+  } catch (err) {
+    setStatus((isScheduled ? "programmazione fallita: " : "ping fallito: ") + err.message, true);
   } finally {
     btn.textContent = prev;
     btn.disabled = false;
   }
+}
+
+function setScheduleBounds() {
+  const input = $("schedule-at");
+  const pad = (n) => String(n).padStart(2, "0");
+  const toLocal = (d) =>
+    `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  const now = new Date();
+  const max = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
+  input.min = toLocal(now);
+  input.max = toLocal(max);
 }
 
 $("refreshBtn").addEventListener("click", loadUsage);
@@ -101,7 +213,10 @@ $("pingBtn").addEventListener("click", doPing);
 
 $("api-base-label").textContent = "API: " + (API_BASE || "(stesso host)");
 
+setScheduleBounds();
 loadUsage();
+loadScheduled();
 if (POLL_SECONDS > 0) {
   setInterval(loadUsage, POLL_SECONDS * 1000);
+  setInterval(loadScheduled, POLL_SECONDS * 1000);
 }

@@ -10,6 +10,7 @@ import { TokenExpiredError } from "./credentials.js";
 import { UpstreamError } from "./anthropic.js";
 import { usageRouter } from "./routes/usage.js";
 import { pingRouter } from "./routes/ping.js";
+import { initScheduler } from "./scheduler.js";
 
 const app = express();
 app.use(express.json());
@@ -53,6 +54,10 @@ app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
   }
   const message = err instanceof Error ? err.message : "Errore interno";
   res.status(500).json({ error: message });
+});
+
+initScheduler().catch((err) => {
+  console.error("Errore inizializzazione scheduler:", err);
 });
 
 app.listen(config.port, () => {

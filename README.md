@@ -73,6 +73,7 @@ Variabili d'ambiente (file `.env` o env di sistema):
 | `PORT`              | `4317`      | Porta del server HTTP.                                                       |
 | `DISABLE_REFRESH`   | `0`         | A `1`/`true` disabilita l'auto-refresh del token OAuth (token scaduto → 401).|
 | `CLAUDE_CONFIG_DIR` | `~/.claude` | Override della cartella di config di Claude Code.                            |
+| `CLAUDIOMETRO_DATA_DIR` | `./data` | Cartella dove vengono persistiti i ping programmati.                       |
 
 Lato frontend (`frontend/config.js`):
 
@@ -83,23 +84,58 @@ Lato frontend (`frontend/config.js`):
 
 ## Endpoint API
 
-| Metodo | Path             | Risposta                                                                 |
-|--------|------------------|--------------------------------------------------------------------------|
-| GET    | `/health`        | `{ "ok": true }`                                                         |
-| GET    | `/usage`         | Tutte le finestre normalizzate + `extra_usage` + `fetched_at`.           |
-| GET    | `/usage/5h`      | Solo la finestra 5 ore.                                                   |
-| GET    | `/usage/weekly`  | Solo la finestra settimanale.                                            |
-| POST   | `/ping`          | Invia un ping a Haiku per avviare la finestra 5h, poi rilegge l'usage.   |
+| Metodo | Path                    | Risposta                                                                       |
+|--------|-------------------------|--------------------------------------------------------------------------------|
+| GET    | `/health`               | `{ "ok": true }`                                                               |
+| GET    | `/usage`                | Tutte le finestre normalizzate + `extra_usage` + `fetched_at`.                 |
+| GET    | `/usage/5h`             | Solo la finestra 5 ore.                                                        |
+| GET    | `/usage/weekly`         | Solo la finestra settimanale.                                                  |
+| POST   | `/ping`                 | Invia un ping a Haiku **subito** (default) oppure lo **schedula** nel futuro.  |
+| GET    | `/ping/scheduled`       | Elenco dei ping programmati (pending + esiti recenti).                         |
+| DELETE | `/ping/scheduled/:id`   | Annulla un ping ancora in attesa.                                              |
 
 Ogni finestra è normalizzata come `{ utilization, resets_at, resets_in_seconds }`.
+
+### Schedulare un ping
+
+`POST /ping` accetta un body JSON opzionale:
+
+- **`{ }`** o body assente → ping immediato (comportamento di default).
+- **`{ "at": "2026-05-31T14:30:00Z" }`** → schedula il ping a quell'istante (ISO 8601).
+- **`{ "delay_seconds": 3600 }`** → schedula tra N secondi.
+
+Limite: **massimo 3 giorni nel futuro** (oltre → `400`). Orari nel passato vengono trattati
+come immediati. I ping programmati sono **persistiti su disco** (`data/scheduled-pings.json`)
+e ricaricati all'avvio: se il server era spento all'orario previsto, il ping parte appena
+riavviato. Un ping schedulato risponde `202 { scheduled: true, id, run_at }`.
 
 Esempi:
 
 ```bash
 curl http://localhost:4317/usage
 curl http://localhost:4317/usage/5h
+
+# Ping immediato
 curl -X POST http://localhost:4317/ping
+
+# Ping tra un'ora
+curl -X POST http://localhost:4317/ping \
+  -H "Content-Type: application/json" \
+  -d '{"delay_seconds": 3600}'
+
+# Ping a data/ora precisa
+curl -X POST http://localhost:4317/ping \
+  -H "Content-Type: application/json" \
+  -d '{"at": "2026-05-31T14:30:00Z"}'
+
+# Lista e annullamento
+curl http://localhost:4317/ping/scheduled
+curl -X DELETE http://localhost:4317/ping/scheduled/<id>
 ```
+
+Lato webapp: il campo **"quando"** accanto al pulsante è vuoto di default (= invia subito);
+selezionando una data/ora futura il ping viene programmato e compare nella card
+**"Ping programmati"**, da cui puoi annullarlo.
 
 ## Note
 
