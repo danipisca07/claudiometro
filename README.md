@@ -200,6 +200,12 @@ curl -H "Authorization: Bearer <token>" http://NAS:4317/admin/credentials/status
 Quando le credenziali smettono di funzionare (refresh scaduto/ruotato), basta ri-lanciare
 `push-credentials.mjs` dal PC.
 
+> **Solo via API (senza copiare il file):** il volume `./config` può partire **vuoto**.
+> Al primo avvio il container non ha credenziali (`/usage` → `401`,
+> `/admin/credentials/status` → `{ present: false }`); appena lanci `push-credentials.mjs`
+> dal PC, il file viene scritto nel volume e `/usage` torna a funzionare. Il bind-mount
+> serve solo a **persistere** le credenziali tra i riavvii del container.
+
 ### 3. Caveat: rotazione del refresh token
 
 Ad ogni refresh, Anthropic **può** restituire un nuovo `refresh_token` (single-use). Se il
@@ -209,6 +215,28 @@ due può invalidarsi. Consigli:
 - lascia che il **NAS** (acceso H24) sia l'istanza che gestisce il refresh;
 - se le credenziali del PC smettono di funzionare, rifai login con la CLI e ri-pusha;
 - in alternativa imposta `DISABLE_REFRESH=1` su uno dei due lati per evitare il conflitto.
+
+### Prova in locale (senza NAS)
+
+Puoi verificare l'intero flusso sul PC prima del deploy, lanciando il container **senza**
+montare il volume delle credenziali (così parte "vuoto", come un NAS appena configurato):
+
+```bash
+docker build -t claudiometro:test .
+docker run -d --name claudiometro-test -p 4317:4317 \
+  -e CLAUDIOMETRO_ADMIN_TOKEN=segreto claudiometro:test
+
+# Credenziali assenti -> 401 / present:false
+curl http://localhost:4317/usage                                   # 401
+curl -H "Authorization: Bearer segreto" \
+  http://localhost:4317/admin/credentials/status                   # { "present": false }
+
+# Push dal PC -> ora /usage funziona
+node scripts/push-credentials.mjs http://localhost:4317 segreto
+curl http://localhost:4317/usage/5h                                # 200
+
+docker rm -f claudiometro-test
+```
 
 ## Note
 
