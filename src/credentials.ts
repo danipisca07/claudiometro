@@ -1,4 +1,5 @@
-import { readFile, writeFile, rename } from "node:fs/promises";
+import { readFile, writeFile, rename, mkdir } from "node:fs/promises";
+import path from "node:path";
 import {
   config,
   credentialsPath,
@@ -29,6 +30,14 @@ export class TokenExpiredError extends Error {
   }
 }
 
+// Body credenziali in upload non valido/incompleto (-> 400).
+export class CredentialsValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "CredentialsValidationError";
+  }
+}
+
 async function readCredentials(): Promise<CredentialsFile> {
   let raw: string;
   try {
@@ -47,10 +56,79 @@ async function readCredentials(): Promise<CredentialsFile> {
   return parsed;
 }
 
-async function writeCredentials(creds: CredentialsFile): Promise<void> {
+export async function writeCredentials(creds: CredentialsFile): Promise<void> {
+  await mkdir(path.dirname(credentialsPath), { recursive: true });
   const tmp = `${credentialsPath}.tmp`;
   await writeFile(tmp, JSON.stringify(creds, null, 2), "utf8");
   await rename(tmp, credentialsPath);
+}
+
+// Salva credenziali ricevute da remoto. Accetta o l'intero file
+// ({ claudeAiOauth: {...}, organizationUuid? }) o direttamente un oggetto
+// claudeAiOauth. Valida accessToken+refreshToken (senza refresh il container
+// muore al primo scadere). Ritorna SOLO metadati non sensibili.
+export async function saveCredentials(
+  input: unknown,
+): Promise<{ expiresAt: number | undefined; scopes: string[] | undefined }> {
+  if (!input || typeof input !== "object") {
+    throw new CredentialsValidationError("Body credenziali assente o non valido.");
+  }
+  const obj = input as Record<string, unknown>;
+  // Se ha la chiave claudeAiOauth lo trattiamo come file completo, altrimenti
+  // assumiamo sia direttamente l'oggetto claudeAiOauth.
+  const hasWrapper =
+    obj.claudeAiOauth && typeof obj.claudeAiOauth === "object";
+  const oauth = (hasWrapper ? obj.claudeAiOauth : obj) as Record<string, unknown>;
+
+  if (typeof oauth.accessToken !== "string" || !oauth.accessToken) {
+    throw new CredentialsValidationError("Credenziali incomplete: 'accessToken' mancante.");
+  }
+  if (typeof oauth.refreshToken !== "string" || !oauth.refreshToken) {
+    throw new CredentialsValidationError(
+      "Credenziali incomplete: 'refreshToken' mancante (necessario per l'auto-refresh).",
+    );
+  }
+
+  const claudeAiOauth: ClaudeOAuth = {
+    accessToken: oauth.accessToken,
+    refreshToken: oauth.refreshToken,
+    expiresAt: typeof oauth.expiresAt === "number" ? oauth.expiresAt : 0,
+    scopes: Array.isArray(oauth.scopes) ? (oauth.scopes as string[]) : undefined,
+    subscriptionType:
+      typeof oauth.subscriptionType === "string" ? oauth.subscriptionType : undefined,
+    rateLimitTier:
+      typeof oauth.rateLimitTier === "string" ? oauth.rateLimitTier : undefined,
+  };
+
+  const creds: CredentialsFile = { claudeAiOauth };
+  if (hasWrapper && typeof obj.organizationUuid === "string") {
+    creds.organizationUuid = obj.organizationUuid;
+  }
+
+  await writeCredentials(creds);
+  return { expiresAt: claudeAiOauth.expiresAt, scopes: claudeAiOauth.scopes };
+}
+
+// Stato delle credenziali correnti, senza esporre i token.
+export async function credentialsStatus(): Promise<{
+  present: boolean;
+  expiresAt?: number;
+  expired?: boolean;
+  scopes?: string[];
+}> {
+  let creds: CredentialsFile;
+  try {
+    creds = await readCredentials();
+  } catch {
+    return { present: false };
+  }
+  const { expiresAt, scopes } = creds.claudeAiOauth;
+  return {
+    present: true,
+    expiresAt,
+    expired: typeof expiresAt === "number" ? expiresAt - Date.now() <= 0 : undefined,
+    scopes,
+  };
 }
 
 interface RefreshResponse {

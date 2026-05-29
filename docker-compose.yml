@@ -1,0 +1,21 @@
+services:
+  claudiometro:
+    build: .
+    # In alternativa, dopo una build/push: image: claudiometro:latest
+    container_name: claudiometro
+    restart: unless-stopped
+    ports:
+      - "4317:4317"
+    environment:
+      PORT: "4317"
+      CLAUDE_CONFIG_DIR: /config
+      CLAUDIOMETRO_DATA_DIR: /data
+      # OBBLIGATORIO per abilitare l'upload remoto delle credenziali.
+      # Genera un segreto lungo e casuale e tienilo privato.
+      CLAUDIOMETRO_ADMIN_TOKEN: "${CLAUDIOMETRO_ADMIN_TOKEN:?serve un CLAUDIOMETRO_ADMIN_TOKEN}"
+      # DISABLE_REFRESH: "0"
+    volumes:
+      # Qui vive .credentials.json (creato via push remoto o copiato a mano).
+      - ./config:/config
+      # Ping programmati persistenti.
+      - ./data:/data

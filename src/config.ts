@@ -18,6 +18,9 @@ export const config = {
   // Cartella dove persistere lo stato runtime (ping programmati).
   dataDir:
     process.env.CLAUDIOMETRO_DATA_DIR || path.join(moduleDir, "..", "data"),
+  // Segreto per gli endpoint /admin/* (upload credenziali da remoto).
+  // Vuoto = endpoint admin disabilitati (fail-closed).
+  adminToken: process.env.CLAUDIOMETRO_ADMIN_TOKEN || "",
 };
 
 export const credentialsPath = path.join(

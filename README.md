@@ -74,6 +74,7 @@ Variabili d'ambiente (file `.env` o env di sistema):
 | `DISABLE_REFRESH`   | `0`         | A `1`/`true` disabilita l'auto-refresh del token OAuth (token scaduto → 401).|
 | `CLAUDE_CONFIG_DIR` | `~/.claude` | Override della cartella di config di Claude Code.                            |
 | `CLAUDIOMETRO_DATA_DIR` | `./data` | Cartella dove vengono persistiti i ping programmati.                       |
+| `CLAUDIOMETRO_ADMIN_TOKEN` | _(vuoto)_ | Segreto per gli endpoint `/admin/*`. Vuoto = endpoint admin disabilitati (fail-closed). |
 
 Lato frontend (`frontend/config.js`):
 
@@ -93,6 +94,8 @@ Lato frontend (`frontend/config.js`):
 | POST   | `/ping`                 | Invia un ping a Haiku **subito** (default) oppure lo **schedula** nel futuro.  |
 | GET    | `/ping/scheduled`       | Elenco dei ping programmati (pending + esiti recenti).                         |
 | DELETE | `/ping/scheduled/:id`   | Annulla un ping ancora in attesa.                                              |
+| POST   | `/admin/credentials`    | **(admin)** Carica/aggiorna le credenziali OAuth da remoto.                    |
+| GET    | `/admin/credentials/status` | **(admin)** Stato delle credenziali (presenza, scadenza) senza i token.    |
 
 Ogni finestra è normalizzata come `{ utilization, resets_at, resets_in_seconds }`.
 
@@ -136,6 +139,76 @@ curl -X DELETE http://localhost:4317/ping/scheduled/<id>
 Lato webapp: il campo **"quando"** accanto al pulsante è vuoto di default (= invia subito);
 selezionando una data/ora futura il ping viene programmato e compare nella card
 **"Ping programmati"**, da cui puoi annullarlo.
+
+## Deploy su TrueNAS (Docker)
+
+L'idea: far girare claudiometro in un container **sempre acceso** sul NAS, così che
+usage e scheduling dei ping funzionino anche a PC spento. Il container non ha
+"nativamente" le credenziali OAuth del tuo PC: gliele si fornisce con un **volume**
+persistente e/o caricandole **da remoto** via API.
+
+> ⚠️ **Sicurezza (leggere prima):** questo setup è pensato per una **LAN domestica
+> fidata in HTTP**. I token viaggiano **in chiaro** sulla rete locale. Di conseguenza:
+> - imposta **sempre** `CLAUDIOMETRO_ADMIN_TOKEN` (senza, gli endpoint `/admin/*` sono
+>   disabilitati → `503`);
+> - **non esporre mai** il server su internet pubblico (niente port-forward sul router).
+>   Per accesso da fuori usa una VPN o un reverse proxy con TLS + auth.
+
+### 1. Build e avvio del container
+
+Sul NAS, in una cartella dedicata, metti il repo (o il solo `docker-compose.yml`) e crea
+un `.env` con il segreto admin:
+
+```bash
+# .env accanto al docker-compose.yml
+CLAUDIOMETRO_ADMIN_TOKEN=<un-segreto-lungo-e-casuale>
+```
+
+Poi:
+
+```bash
+docker compose up -d --build
+```
+
+Vengono creati due volumi (bind-mount):
+
+| Host (NAS)   | Container  | Contenuto                                  |
+|--------------|------------|--------------------------------------------|
+| `./config`   | `/config`  | `.credentials.json` (le credenziali OAuth) |
+| `./data`     | `/data`    | `scheduled-pings.json` (ping programmati)  |
+
+### 2. Caricare le credenziali dal PC
+
+Dopo aver fatto login con la CLI di Claude Code sul PC, lancia dal PC:
+
+```bash
+node scripts/push-credentials.mjs http://NAS:4317 <CLAUDIOMETRO_ADMIN_TOKEN>
+```
+
+Lo script legge `~/.claude/.credentials.json` (o `CLAUDE_CONFIG_DIR`) e fa
+`POST /admin/credentials` con header `Authorization: Bearer <token>`. Non stampa mai
+i token, solo l'esito (`expiresAt`, `scopes`). In alternativa puoi copiare a mano il
+file in `./config/.credentials.json` sul NAS.
+
+Verifica lo stato:
+
+```bash
+curl -H "Authorization: Bearer <token>" http://NAS:4317/admin/credentials/status
+# -> { "present": true, "expiresAt": ..., "expired": false, "scopes": [...] }
+```
+
+Quando le credenziali smettono di funzionare (refresh scaduto/ruotato), basta ri-lanciare
+`push-credentials.mjs` dal PC.
+
+### 3. Caveat: rotazione del refresh token
+
+Ad ogni refresh, Anthropic **può** restituire un nuovo `refresh_token` (single-use). Se il
+**NAS** e la **CLI del PC** fanno refresh in parallelo partendo dallo stesso token, uno dei
+due può invalidarsi. Consigli:
+
+- lascia che il **NAS** (acceso H24) sia l'istanza che gestisce il refresh;
+- se le credenziali del PC smettono di funzionare, rifai login con la CLI e ri-pusha;
+- in alternativa imposta `DISABLE_REFRESH=1` su uno dei due lati per evitare il conflitto.
 
 ## Note
 
