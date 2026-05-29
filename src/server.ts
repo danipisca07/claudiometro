@@ -54,9 +54,16 @@ const errorStatus = (err: unknown): number => {
   return 500;
 };
 
-app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
+app.use((err: unknown, req: Request, res: Response, _next: NextFunction) => {
+  const status = errorStatus(err);
   const message = err instanceof Error ? err.message : "Errore interno";
-  res.status(errorStatus(err)).json({ error: message });
+  // Log completo lato server (incluse causa e stack) per il debug; al client
+  // mandiamo solo il messaggio.
+  console.error(`[${status}] ${req.method} ${req.path}:`, err);
+  if (err instanceof Error && err.cause) {
+    console.error("  cause:", err.cause);
+  }
+  res.status(status).json({ error: message });
 });
 
 initScheduler().catch((err) => {

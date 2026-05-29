@@ -51,7 +51,16 @@ async function request<T>(
   init: RequestInit,
   label: string,
 ): Promise<T> {
-  const res = await fetch(`${BASE_URL}${path}`, init);
+  const url = `${BASE_URL}${path}`;
+  let res: Response;
+  try {
+    res = await fetch(url, init);
+  } catch (err) {
+    // fetch() rigetta solo per errori di rete (DNS, connessione, TLS): il
+    // motivo reale e' in err.cause, che altrimenti resterebbe nascosto dietro
+    // il generico "fetch failed".
+    throw new UpstreamError(0, `${label}: ${describeFetchError(url, err)}`);
+  }
   const text = await res.text();
   if (!res.ok) {
     throw new UpstreamError(
@@ -60,6 +69,18 @@ async function request<T>(
     );
   }
   return JSON.parse(text) as T;
+}
+
+// Estrae una descrizione leggibile da un errore di rete di fetch(), inclusa
+// la causa sottostante (es. ENOTFOUND, ECONNREFUSED, ETIMEDOUT).
+export function describeFetchError(url: string, err: unknown): string {
+  const base = err instanceof Error ? err.message : String(err);
+  const cause = (err as { cause?: unknown }).cause;
+  if (cause instanceof Error) {
+    const code = (cause as NodeJS.ErrnoException).code;
+    return `${base} -> ${code ? `${code}: ` : ""}${cause.message} (${url})`;
+  }
+  return `${base} (${url})`;
 }
 
 export async function getUsage(token: string): Promise<RawUsage> {
