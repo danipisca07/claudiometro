@@ -15,11 +15,11 @@ export const config = {
   disableRefresh: bool(process.env.DISABLE_REFRESH),
   claudeConfigDir:
     process.env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), ".claude"),
-  // Cartella dove persistere lo stato runtime (ping programmati).
+  // Folder where runtime state is persisted (scheduled pings).
   dataDir:
     process.env.CLAUDIOMETRO_DATA_DIR || path.join(moduleDir, "..", "data"),
-  // Segreto per gli endpoint /admin/* (upload credenziali da remoto).
-  // Vuoto = endpoint admin disabilitati (fail-closed).
+  // Secret for the /admin/* endpoints (remote credentials upload).
+  // Empty = admin endpoints disabled (fail-closed).
   adminToken: process.env.CLAUDIOMETRO_ADMIN_TOKEN || "",
 };
 
@@ -33,7 +33,7 @@ export const scheduledPingsPath = path.join(
   "scheduled-pings.json",
 );
 
-// Massimo orizzonte di schedulazione di un ping: 3 giorni.
+// Maximum scheduling horizon for a ping: 3 days.
 export const MAX_SCHEDULE_MS = 3 * 24 * 60 * 60 * 1000;
 
 // Anthropic / Claude Code OAuth constants

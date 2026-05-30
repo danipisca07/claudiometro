@@ -44,8 +44,8 @@ function authHeaders(token: string): Record<string, string> {
   };
 }
 
-// Esegue una richiesta verso l'API Anthropic e ne ritorna il JSON,
-// trasformando le risposte non-2xx in UpstreamError.
+// Performs a request to the Anthropic API and returns its JSON, turning
+// non-2xx responses into an UpstreamError.
 async function request<T>(
   path: string,
   init: RequestInit,
@@ -56,9 +56,9 @@ async function request<T>(
   try {
     res = await fetch(url, init);
   } catch (err) {
-    // fetch() rigetta solo per errori di rete (DNS, connessione, TLS): il
-    // motivo reale e' in err.cause, che altrimenti resterebbe nascosto dietro
-    // il generico "fetch failed".
+    // fetch() only rejects on network errors (DNS, connection, TLS): the real
+    // reason is in err.cause, which would otherwise stay hidden behind the
+    // generic "fetch failed".
     throw new UpstreamError(0, `${label}: ${describeFetchError(url, err)}`);
   }
   const text = await res.text();
@@ -71,8 +71,8 @@ async function request<T>(
   return JSON.parse(text) as T;
 }
 
-// Estrae una descrizione leggibile da un errore di rete di fetch(), inclusa
-// la causa sottostante (es. ENOTFOUND, ECONNREFUSED, ETIMEDOUT).
+// Extracts a readable description from a fetch() network error, including
+// the underlying cause (e.g. ENOTFOUND, ECONNREFUSED, ETIMEDOUT).
 export function describeFetchError(url: string, err: unknown): string {
   const base = err instanceof Error ? err.message : String(err);
   const cause = (err as { cause?: unknown }).cause;
@@ -87,7 +87,7 @@ export async function getUsage(token: string): Promise<RawUsage> {
   return request<RawUsage>(
     "/api/oauth/usage",
     { headers: authHeaders(token) },
-    "Errore endpoint usage",
+    "Usage endpoint error",
   );
 }
 
@@ -114,7 +114,7 @@ export async function ping(token: string): Promise<PingResult> {
         messages: [{ role: "user", content: "ping" }],
       }),
     },
-    "Errore ping",
+    "Ping error",
   );
   return { id: data.id, model: data.model, stop_reason: data.stop_reason };
 }

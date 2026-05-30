@@ -16,7 +16,7 @@ import { initScheduler, ScheduleError } from "./scheduler.js";
 const app = express();
 app.use(express.json());
 
-// Permissive CORS: le API sono esposte solo su LAN, nessuna autenticazione.
+// Permissive CORS: the APIs are exposed on the LAN only, no authentication.
 app.use((req: Request, res: Response, next: NextFunction) => {
   res.header("Access-Control-Allow-Origin", "*");
   res.header("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
@@ -36,7 +36,7 @@ app.use(usageRouter);
 app.use(pingRouter);
 app.use(adminRouter);
 
-// Serve la webapp statica (frontend/) sulla root.
+// Serve the static webapp (frontend/) at the root.
 const frontendDir = path.join(
   path.dirname(fileURLToPath(import.meta.url)),
   "..",
@@ -44,8 +44,8 @@ const frontendDir = path.join(
 );
 app.use(express.static(frontendDir));
 
-// Gestione centralizzata degli errori: mappa ogni errore di dominio sul suo
-// status HTTP. Le route si limitano a propagare con next(err).
+// Centralized error handling: maps every domain error to its HTTP status.
+// Routes simply propagate with next(err).
 const errorStatus = (err: unknown): number => {
   if (err instanceof TokenExpiredError) return 401;
   if (err instanceof CredentialsValidationError) return 400;
@@ -56,9 +56,9 @@ const errorStatus = (err: unknown): number => {
 
 app.use((err: unknown, req: Request, res: Response, _next: NextFunction) => {
   const status = errorStatus(err);
-  const message = err instanceof Error ? err.message : "Errore interno";
-  // Log completo lato server (incluse causa e stack) per il debug; al client
-  // mandiamo solo il messaggio.
+  const message = err instanceof Error ? err.message : "Internal error";
+  // Full server-side log (including cause and stack) for debugging; we only
+  // send the message to the client.
   console.error(`[${status}] ${req.method} ${req.path}:`, err);
   if (err instanceof Error && err.cause) {
     console.error("  cause:", err.cause);
@@ -67,12 +67,12 @@ app.use((err: unknown, req: Request, res: Response, _next: NextFunction) => {
 });
 
 initScheduler().catch((err) => {
-  console.error("Errore inizializzazione scheduler:", err);
+  console.error("Scheduler initialization error:", err);
 });
 
 app.listen(config.port, () => {
-  console.log(`claudiometro in ascolto su http://localhost:${config.port}`);
+  console.log(`claudiometro listening on http://localhost:${config.port}`);
   console.log(
-    `auto-refresh token: ${config.disableRefresh ? "DISABILITATO" : "abilitato"}`,
+    `token auto-refresh: ${config.disableRefresh ? "DISABLED" : "enabled"}`,
   );
 });

@@ -30,7 +30,7 @@ export class TokenExpiredError extends Error {
   }
 }
 
-// Body credenziali in upload non valido/incompleto (-> 400).
+// Invalid/incomplete uploaded credentials body (-> 400).
 export class CredentialsValidationError extends Error {
   constructor(message: string) {
     super(message);
@@ -44,13 +44,13 @@ async function readCredentials(): Promise<CredentialsFile> {
     raw = await readFile(credentialsPath, "utf8");
   } catch {
     throw new TokenExpiredError(
-      `File credenziali non trovato in ${credentialsPath}. Esegui il login con la CLI Claude Code.`,
+      `Credentials file not found at ${credentialsPath}. Log in with the Claude Code CLI.`,
     );
   }
   const parsed = JSON.parse(raw) as CredentialsFile;
   if (!parsed.claudeAiOauth?.accessToken) {
     throw new TokenExpiredError(
-      "Credenziali OAuth Claude Code assenti o malformate.",
+      "Claude Code OAuth credentials missing or malformed.",
     );
   }
   return parsed;
@@ -63,29 +63,29 @@ export async function writeCredentials(creds: CredentialsFile): Promise<void> {
   await rename(tmp, credentialsPath);
 }
 
-// Salva credenziali ricevute da remoto. Accetta o l'intero file
-// ({ claudeAiOauth: {...}, organizationUuid? }) o direttamente un oggetto
-// claudeAiOauth. Valida accessToken+refreshToken (senza refresh il container
-// muore al primo scadere). Ritorna SOLO metadati non sensibili.
+// Saves credentials received remotely. Accepts either the whole file
+// ({ claudeAiOauth: {...}, organizationUuid? }) or a bare claudeAiOauth
+// object. Validates accessToken+refreshToken (without a refresh token the
+// container dies at the first expiry). Returns ONLY non-sensitive metadata.
 export async function saveCredentials(
   input: unknown,
 ): Promise<{ expiresAt: number | undefined; scopes: string[] | undefined }> {
   if (!input || typeof input !== "object") {
-    throw new CredentialsValidationError("Body credenziali assente o non valido.");
+    throw new CredentialsValidationError("Credentials body missing or invalid.");
   }
   const obj = input as Record<string, unknown>;
-  // Se ha la chiave claudeAiOauth lo trattiamo come file completo, altrimenti
-  // assumiamo sia direttamente l'oggetto claudeAiOauth.
+  // If it has a claudeAiOauth key we treat it as the full file, otherwise we
+  // assume it is the claudeAiOauth object directly.
   const hasWrapper =
     obj.claudeAiOauth && typeof obj.claudeAiOauth === "object";
   const oauth = (hasWrapper ? obj.claudeAiOauth : obj) as Record<string, unknown>;
 
   if (typeof oauth.accessToken !== "string" || !oauth.accessToken) {
-    throw new CredentialsValidationError("Credenziali incomplete: 'accessToken' mancante.");
+    throw new CredentialsValidationError("Incomplete credentials: 'accessToken' missing.");
   }
   if (typeof oauth.refreshToken !== "string" || !oauth.refreshToken) {
     throw new CredentialsValidationError(
-      "Credenziali incomplete: 'refreshToken' mancante (necessario per l'auto-refresh).",
+      "Incomplete credentials: 'refreshToken' missing (required for auto-refresh).",
     );
   }
 
@@ -109,7 +109,7 @@ export async function saveCredentials(
   return { expiresAt: claudeAiOauth.expiresAt, scopes: claudeAiOauth.scopes };
 }
 
-// Stato delle credenziali correnti, senza esporre i token.
+// Current credentials status, without exposing the tokens.
 export async function credentialsStatus(): Promise<{
   present: boolean;
   expiresAt?: number;
@@ -153,7 +153,7 @@ async function refreshAccessToken(
   if (!res.ok) {
     const body = await res.text();
     throw new TokenExpiredError(
-      `Refresh del token fallito (${res.status}): ${body.slice(0, 300)}. Rinnova con la CLI Claude Code.`,
+      `Token refresh failed (${res.status}): ${body.slice(0, 300)}. Renew it with the Claude Code CLI.`,
     );
   }
 
@@ -183,7 +183,7 @@ export async function getValidAccessToken(): Promise<string> {
 
   if (config.disableRefresh) {
     throw new TokenExpiredError(
-      "Token OAuth scaduto e auto-refresh disabilitato (DISABLE_REFRESH). Rinnova con la CLI Claude Code.",
+      "OAuth token expired and auto-refresh disabled (DISABLE_REFRESH). Renew it with the Claude Code CLI.",
     );
   }
 
