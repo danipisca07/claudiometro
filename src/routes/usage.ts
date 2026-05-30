@@ -24,8 +24,8 @@ async function loadUsage(): Promise<RawUsage> {
   return getUsage(await getValidAccessToken());
 }
 
-// Costruisce un handler che recupera l'usage e ne ritorna solo le finestre
-// selezionate dal `shape`, con un timestamp `fetched_at` comune.
+// Builds a handler that fetches the usage and returns only the windows
+// selected by `shape`, with a common `fetched_at` timestamp.
 function usageHandler(
   shape: (raw: RawUsage) => Record<string, unknown>,
 ) {

@@ -6,9 +6,9 @@ import { schedulePing, listScheduled, cancelScheduled } from "../scheduler.js";
 export const pingRouter = Router();
 
 // POST /ping
-//   body opzionale: { at?: ISO8601 } oppure { delay_seconds?: number }
-//   - assente / nel passato  -> ping immediato (default)
-//   - nel futuro (max 3gg)    -> salva e invia a tempo
+//   optional body: { at?: ISO8601 } or { delay_seconds?: number }
+//   - absent / in the past   -> immediate ping (default)
+//   - in the future (max 3d) -> store and send on time
 pingRouter.post("/ping", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const body = (req.body ?? {}) as { at?: unknown; delay_seconds?: unknown };
@@ -17,14 +17,14 @@ pingRouter.post("/ping", async (req: Request, res: Response, next: NextFunction)
     if (typeof body.at === "string" && body.at.trim()) {
       runAt = new Date(body.at);
       if (Number.isNaN(runAt.getTime())) {
-        res.status(400).json({ error: "Parametro 'at' non valido (usa ISO 8601)." });
+        res.status(400).json({ error: "Invalid 'at' parameter (use ISO 8601)." });
         return;
       }
     } else if (typeof body.delay_seconds === "number" && body.delay_seconds > 0) {
       runAt = new Date(Date.now() + body.delay_seconds * 1000);
     }
 
-    // Immediato se non specificato o se l'orario è entro 1s da adesso.
+    // Immediate if unspecified or if the time is within 1s from now.
     if (!runAt || runAt.getTime() <= Date.now() + 1000) {
       const token = await getValidAccessToken();
       const result = await ping(token);
@@ -39,8 +39,8 @@ pingRouter.post("/ping", async (req: Request, res: Response, next: NextFunction)
       return;
     }
 
-    // Una ScheduleError (es. oltre il limite di 3gg) viene mappata a 400
-    // dall'error handler centrale tramite next(err).
+    // A ScheduleError (e.g. beyond the 3-day limit) is mapped to 400 by the
+    // central error handler via next(err).
     const item = await schedulePing(runAt);
     res.status(202).json({
       pinged: false,
@@ -63,7 +63,7 @@ pingRouter.delete(
     try {
       const ok = await cancelScheduled(req.params.id);
       if (!ok) {
-        res.status(404).json({ error: "Ping non trovato o non più annullabile." });
+        res.status(404).json({ error: "Ping not found or no longer cancelable." });
         return;
       }
       res.json({ canceled: true, id: req.params.id });

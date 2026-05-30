@@ -1,22 +1,22 @@
 #!/usr/bin/env node
-// Carica le credenziali OAuth di Claude Code dal PC locale verso un'istanza
-// remota di claudiometro (es. il container sul NAS).
+// Uploads the local PC's Claude Code OAuth credentials to a remote
+// claudiometro instance (e.g. the container on the NAS).
 //
-// Uso:
+// Usage:
 //   node scripts/push-credentials.mjs http://NAS:4317 [admin-token]
 //
-// Il token admin puo essere passato come 2o argomento oppure via env
-// CLAUDIOMETRO_ADMIN_TOKEN. Il file credenziali viene letto da
+// The admin token can be passed as the 2nd argument or via the env var
+// CLAUDIOMETRO_ADMIN_TOKEN. The credentials file is read from
 // CLAUDE_CONFIG_DIR/.credentials.json (default ~/.claude/.credentials.json).
 //
-// Non stampa mai i token: solo l'esito (expiresAt, scopes).
+// It never prints the tokens: only the outcome (expiresAt, scopes).
 
 import { readFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
 function fail(msg) {
-  console.error("Errore: " + msg);
+  console.error("Error: " + msg);
   process.exit(1);
 }
 
@@ -25,13 +25,13 @@ const token = process.argv[3] || process.env.CLAUDIOMETRO_ADMIN_TOKEN || "";
 
 if (!base) {
   fail(
-    "manca l'URL di destinazione.\n" +
-      "Uso: node scripts/push-credentials.mjs http://NAS:4317 [admin-token]",
+    "missing destination URL.\n" +
+      "Usage: node scripts/push-credentials.mjs http://NAS:4317 [admin-token]",
   );
 }
 if (!token) {
   fail(
-    "manca il token admin. Passalo come 2o argomento o via CLAUDIOMETRO_ADMIN_TOKEN.",
+    "missing admin token. Pass it as the 2nd argument or via CLAUDIOMETRO_ADMIN_TOKEN.",
   );
 }
 
@@ -43,18 +43,18 @@ let raw;
 try {
   raw = await readFile(credPath, "utf8");
 } catch {
-  fail(`file credenziali non trovato in ${credPath}. Fai login con la CLI Claude Code.`);
+  fail(`credentials file not found at ${credPath}. Log in with the Claude Code CLI.`);
 }
 
 let parsed;
 try {
   parsed = JSON.parse(raw);
 } catch {
-  fail(`file credenziali non e JSON valido: ${credPath}`);
+  fail(`credentials file is not valid JSON: ${credPath}`);
 }
 
 if (!parsed?.claudeAiOauth?.refreshToken) {
-  fail("le credenziali locali non contengono un refreshToken: impossibile procedere.");
+  fail("the local credentials do not contain a refreshToken: cannot proceed.");
 }
 
 const res = await fetch(`${base}/admin/credentials`, {
@@ -64,7 +64,7 @@ const res = await fetch(`${base}/admin/credentials`, {
     Authorization: `Bearer ${token}`,
   },
   body: JSON.stringify(parsed),
-}).catch((e) => fail(`richiesta fallita: ${e.message}`));
+}).catch((e) => fail(`request failed: ${e.message}`));
 
 const text = await res.text();
 let body;
@@ -78,9 +78,9 @@ if (!res.ok) {
   fail(`HTTP ${res.status}: ${body.error || text}`);
 }
 
-console.log("Credenziali caricate con successo su " + base);
+console.log("Credentials uploaded successfully to " + base);
 if (body.expiresAt) {
-  console.log("  scade: " + new Date(body.expiresAt).toLocaleString());
+  console.log("  expires: " + new Date(body.expiresAt).toLocaleString());
 }
 if (body.scopes) {
   console.log("  scopes: " + body.scopes.join(", "));

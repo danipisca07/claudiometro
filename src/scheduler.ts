@@ -59,11 +59,11 @@ function arm(item: ScheduledPing): void {
 
 export async function schedulePing(runAt: Date): Promise<ScheduledPing> {
   if (Number.isNaN(runAt.getTime())) {
-    throw new ScheduleError("Data di schedulazione non valida.");
+    throw new ScheduleError("Invalid schedule date.");
   }
   if (runAt.getTime() - Date.now() > MAX_SCHEDULE_MS) {
     throw new ScheduleError(
-      "Il ping può essere schedulato al massimo 3 giorni nel futuro.",
+      "A ping can be scheduled at most 3 days in the future.",
     );
   }
   const item: ScheduledPing = {
@@ -101,13 +101,13 @@ export async function initScheduler(): Promise<void> {
   } catch {
     items = [];
   }
-  // Pota gli esiti più vecchi di 3 giorni per non far crescere il file all'infinito.
+  // Prune outcomes older than 3 days so the file does not grow forever.
   const cutoff = Date.now() - MAX_SCHEDULE_MS;
   items = items.filter((i) => {
     if (i.status === "pending") return true;
     return new Date(i.fired_at || i.created_at).getTime() >= cutoff;
   });
-  // Riarma i pending: quelli con run_at già passato (server spento) partono subito.
+  // Re-arm pending ones: those whose run_at already passed (server down) fire now.
   for (const item of items) {
     if (item.status === "pending") arm(item);
   }

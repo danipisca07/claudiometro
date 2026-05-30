@@ -10,12 +10,12 @@ function setStatus(msg, isError) {
 }
 
 function fmtReset(seconds) {
-  if (seconds == null) return "reset --";
+  if (seconds == null) return "resets --";
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);
-  if (h > 0) return `reset tra ${h}h ${m}m`;
-  if (m > 0) return `reset tra ${m}m`;
-  return "reset imminente";
+  if (h > 0) return `resets in ${h}h ${m}m`;
+  if (m > 0) return `resets in ${m}m`;
+  return "resetting soon";
 }
 
 function colorFor(util) {
@@ -32,7 +32,7 @@ function renderWindow(prefix, w) {
   if (util == null) {
     fill.style.width = "0%";
     utilEl.textContent = "--%";
-    resetEl.textContent = "reset --";
+    resetEl.textContent = "resets --";
     return;
   }
   fill.style.width = `${Math.min(100, util)}%`;
@@ -68,15 +68,15 @@ async function loadUsage() {
     renderWindow("weekly", data.seven_day);
     renderExtra(data.extra_usage);
     $("updated").textContent =
-      "aggiornato " + new Date().toLocaleTimeString("it-IT");
+      "updated " + new Date().toLocaleTimeString();
     setStatus("ok");
   } catch (err) {
-    setStatus("errore: " + err.message, true);
+    setStatus("error: " + err.message, true);
   }
 }
 
 function fmtDateTime(iso) {
-  return new Date(iso).toLocaleString("it-IT", {
+  return new Date(iso).toLocaleString(undefined, {
     day: "2-digit",
     month: "2-digit",
     hour: "2-digit",
@@ -85,10 +85,10 @@ function fmtDateTime(iso) {
 }
 
 const STATUS_LABEL = {
-  pending: "in attesa",
-  done: "inviato",
-  failed: "fallito",
-  canceled: "annullato",
+  pending: "pending",
+  done: "sent",
+  failed: "failed",
+  canceled: "canceled",
 };
 
 function renderScheduled(list) {
@@ -119,7 +119,7 @@ function renderScheduled(list) {
     if (item.status === "pending") {
       const cancel = document.createElement("button");
       cancel.className = "sched-cancel";
-      cancel.textContent = "Annulla";
+      cancel.textContent = "Cancel";
       cancel.addEventListener("click", () => cancelScheduled(item.id, cancel));
       li.append(cancel);
     }
@@ -134,7 +134,7 @@ async function loadScheduled() {
     const data = await res.json();
     renderScheduled(data.scheduled);
   } catch {
-    /* lista non critica: ignora errori di rete transitori */
+    /* non-critical list: ignore transient network errors */
   }
 }
 
@@ -148,10 +148,10 @@ async function cancelScheduled(id, btn) {
       const body = await res.json().catch(() => ({}));
       throw new Error(body.error || `HTTP ${res.status}`);
     }
-    setStatus("ping programmato annullato");
+    setStatus("scheduled ping canceled");
     await loadScheduled();
   } catch (err) {
-    setStatus("annullamento fallito: " + err.message, true);
+    setStatus("cancellation failed: " + err.message, true);
     btn.disabled = false;
   }
 }
@@ -164,11 +164,11 @@ async function doPing() {
   const atRaw = $("schedule-at").value;
   const body = {};
   if (atRaw) {
-    // datetime-local è ora locale senza fuso: new Date() la interpreta come locale.
+    // datetime-local is local time without a zone: new Date() reads it as local.
     body.at = new Date(atRaw).toISOString();
   }
   const isScheduled = !!body.at;
-  btn.textContent = isScheduled ? "Programmazione..." : "Ping in corso...";
+  btn.textContent = isScheduled ? "Scheduling..." : "Pinging...";
 
   try {
     const res = await fetch(`${API_BASE}/ping`, {
@@ -182,15 +182,15 @@ async function doPing() {
     }
     const data = await res.json();
     if (data.scheduled) {
-      setStatus("ping programmato per " + fmtDateTime(data.run_at));
+      setStatus("ping scheduled for " + fmtDateTime(data.run_at));
       $("schedule-at").value = "";
       await loadScheduled();
     } else {
-      setStatus("ping inviato — finestra 5h avviata");
+      setStatus("ping sent — 5h window started");
       await loadUsage();
     }
   } catch (err) {
-    setStatus((isScheduled ? "programmazione fallita: " : "ping fallito: ") + err.message, true);
+    setStatus((isScheduled ? "scheduling failed: " : "ping failed: ") + err.message, true);
   } finally {
     btn.textContent = prev;
     btn.disabled = false;
@@ -211,7 +211,7 @@ function setScheduleBounds() {
 $("refreshBtn").addEventListener("click", loadUsage);
 $("pingBtn").addEventListener("click", doPing);
 
-$("api-base-label").textContent = "API: " + (API_BASE || "(stesso host)");
+$("api-base-label").textContent = "API: " + (API_BASE || "(same host)");
 
 setScheduleBounds();
 loadUsage();

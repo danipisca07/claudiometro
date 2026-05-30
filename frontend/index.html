@@ -12,39 +12,39 @@
       <div class="toolbar">
         <span id="status" class="status"></span>
         <label class="sched-field">
-          <span>quando</span>
+          <span>when</span>
           <input
             type="datetime-local"
             id="schedule-at"
-            title="Vuoto = invia subito. Max 3 giorni nel futuro."
+            title="Empty = send now. Max 3 days in the future."
           />
         </label>
-        <button id="refreshBtn">Aggiorna</button>
-        <button id="pingBtn">Ping Haiku (avvia 5h)</button>
+        <button id="refreshBtn">Refresh</button>
+        <button id="pingBtn">Ping Haiku (start 5h)</button>
       </div>
     </header>
 
     <main>
       <section class="card" id="card-5h">
-        <h2>Finestra 5 ore</h2>
+        <h2>5-hour window</h2>
         <div class="bar"><div class="bar-fill" id="fill-5h"></div></div>
         <div class="row">
           <span class="util" id="util-5h">--%</span>
-          <span class="reset" id="reset-5h">reset --</span>
+          <span class="reset" id="reset-5h">resets --</span>
         </div>
       </section>
 
       <section class="card" id="card-weekly">
-        <h2>Finestra settimanale (7 giorni)</h2>
+        <h2>Weekly window (7 days)</h2>
         <div class="bar"><div class="bar-fill" id="fill-weekly"></div></div>
         <div class="row">
           <span class="util" id="util-weekly">--%</span>
-          <span class="reset" id="reset-weekly">reset --</span>
+          <span class="reset" id="reset-weekly">resets --</span>
         </div>
       </section>
 
       <section class="card" id="card-extra" hidden>
-        <h2>Crediti extra</h2>
+        <h2>Extra credits</h2>
         <div class="bar"><div class="bar-fill" id="fill-extra"></div></div>
         <div class="row">
           <span class="util" id="util-extra">--%</span>
@@ -53,7 +53,7 @@
       </section>
 
       <section class="card card-wide" id="card-scheduled" hidden>
-        <h2>Ping programmati</h2>
+        <h2>Scheduled pings</h2>
         <ul class="sched-list" id="scheduled-list"></ul>
       </section>
     </main>

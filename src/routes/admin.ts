@@ -4,8 +4,8 @@ import { saveCredentials, credentialsStatus } from "../credentials.js";
 
 export const adminRouter = Router();
 
-// POST /admin/credentials — carica/aggiorna le credenziali OAuth da remoto.
-// Una CredentialsValidationError viene mappata a 400 dall'error handler centrale.
+// POST /admin/credentials — uploads/updates the OAuth credentials remotely.
+// A CredentialsValidationError is mapped to 400 by the central error handler.
 adminRouter.post(
   "/admin/credentials",
   requireAdmin,
@@ -19,7 +19,7 @@ adminRouter.post(
   },
 );
 
-// GET /admin/credentials/status — stato credenziali (senza token).
+// GET /admin/credentials/status — credentials status (without tokens).
 adminRouter.get(
   "/admin/credentials/status",
   requireAdmin,
