@@ -1,6 +1,6 @@
 {
   "name": "claudiometro",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Monitor Claude Code usage (5h + weekly windows) via local OAuth credentials",
   "license": "GPL-3.0-or-later",
   "type": "module",
