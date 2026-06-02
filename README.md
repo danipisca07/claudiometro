@@ -109,6 +109,38 @@ a small home server) is that usage tracking and scheduled pings keep working eve
 PC is off. The container has no credentials of its own — you provide them with a persistent
 volume and/or by uploading them remotely via the admin API.
 
+### Ready-to-go image (Docker Hub)
+
+A prebuilt image is published on Docker Hub, so you don't have to build anything — just
+pull and run:
+
+**[`danipisca07/claudiometro`](https://hub.docker.com/r/danipisca07/claudiometro)**
+
+```bash
+docker run -d --name claudiometro \
+  --restart unless-stopped \
+  -p 4317:4317 \
+  -e CLAUDIOMETRO_ADMIN_TOKEN=<a-long-random-secret> \
+  -e CLAUDE_CONFIG_DIR=/config \
+  -e CLAUDIOMETRO_DATA_DIR=/data \
+  -v "$PWD/config:/config" \
+  -v "$PWD/data:/data" \
+  danipisca07/claudiometro:latest
+```
+
+The container starts **empty** (no credentials); push yours afterwards — see
+[Uploading credentials from your PC](#uploading-credentials-from-your-pc). Then open
+`http://HOST:4317/`.
+
+Tags: `latest` tracks the newest release; pin a specific version (e.g.
+`danipisca07/claudiometro:1.0.2`) for reproducible deploys. Pull updates with
+`docker pull danipisca07/claudiometro:latest` and recreate the container.
+
+> The published image is built for **`linux/amd64`** only. On `arm64` hosts (e.g. a
+> Raspberry Pi or an Apple-silicon machine) build from source instead — see below.
+
+### Build from source
+
 A `Dockerfile` and `docker-compose.yml` are included. With Compose:
 
 ```bash
@@ -117,6 +149,10 @@ CLAUDIOMETRO_ADMIN_TOKEN=<a-long-random-secret>
 
 docker compose up -d --build
 ```
+
+To run the published image instead of building, comment out `build: .` in
+`docker-compose.yml` and uncomment the `image: danipisca07/claudiometro:latest` line, then
+`docker compose up -d`.
 
 Two bind-mounts are used:
 
