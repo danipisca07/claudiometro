@@ -161,6 +161,68 @@ async function cancelScheduled(id, btn) {
   }
 }
 
+const pad2 = (n) => String(n).padStart(2, "0");
+
+function renderDaily(rule) {
+  $("daily-enabled").checked = !!rule.enabled;
+  $("daily-time").value = `${pad2(rule.hour)}:${pad2(rule.minute)}`;
+  const info = $("daily-info");
+  const parts = [];
+  if (rule.enabled && rule.next_run) {
+    parts.push("next " + fmtDateTime(rule.next_run));
+  } else {
+    parts.push("disabled");
+  }
+  if (rule.last_run_at) {
+    const last = rule.last_status === "failed" ? "failed" : "sent";
+    parts.push(`last ${last} ${fmtDateTime(rule.last_run_at)}`);
+    if (rule.last_status === "failed" && rule.last_error) {
+      info.title = rule.last_error;
+    }
+  }
+  info.textContent = parts.join(" · ");
+}
+
+async function loadDaily() {
+  try {
+    const res = await fetch(`${API_BASE}/ping/daily`);
+    if (!res.ok) return;
+    renderDaily(await res.json());
+  } catch {
+    /* non-critical: ignore transient network errors */
+  }
+}
+
+async function saveDaily() {
+  const time = $("daily-time").value || "09:00";
+  const [hour, minute] = time.split(":").map((n) => Number(n));
+  try {
+    const res = await fetch(`${API_BASE}/ping/daily`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        enabled: $("daily-enabled").checked,
+        hour,
+        minute,
+      }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.error || `HTTP ${res.status}`);
+    }
+    const rule = await res.json();
+    renderDaily(rule);
+    setStatus(
+      rule.enabled
+        ? "daily ping set for " + fmtDateTime(rule.next_run)
+        : "daily ping disabled",
+    );
+  } catch (err) {
+    setStatus("daily ping update failed: " + err.message, true);
+    await loadDaily();
+  }
+}
+
 async function doPing() {
   const btn = $("pingBtn");
   btn.disabled = true;
@@ -215,13 +277,17 @@ function setScheduleBounds() {
 
 $("refreshBtn").addEventListener("click", loadUsage);
 $("pingBtn").addEventListener("click", doPing);
+$("daily-enabled").addEventListener("change", saveDaily);
+$("daily-time").addEventListener("change", saveDaily);
 
 $("api-base-label").textContent = "API: " + (API_BASE || "(same host)");
 
 setScheduleBounds();
 loadUsage();
 loadScheduled();
+loadDaily();
 if (POLL_SECONDS > 0) {
   setInterval(loadUsage, POLL_SECONDS * 1000);
   setInterval(loadScheduled, POLL_SECONDS * 1000);
+  setInterval(loadDaily, POLL_SECONDS * 1000);
 }

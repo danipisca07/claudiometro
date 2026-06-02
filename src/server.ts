@@ -11,7 +11,7 @@ import { UpstreamError } from "./anthropic.js";
 import { usageRouter } from "./routes/usage.js";
 import { pingRouter } from "./routes/ping.js";
 import { adminRouter } from "./routes/admin.js";
-import { initScheduler, ScheduleError } from "./scheduler.js";
+import { initScheduler, initDailyPing, ScheduleError } from "./scheduler.js";
 
 const app = express();
 app.use(express.json());
@@ -68,6 +68,10 @@ app.use((err: unknown, req: Request, res: Response, _next: NextFunction) => {
 
 initScheduler().catch((err) => {
   console.error("Scheduler initialization error:", err);
+});
+
+initDailyPing().catch((err) => {
+  console.error("Daily ping initialization error:", err);
 });
 
 app.listen(config.port, () => {

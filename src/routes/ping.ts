@@ -1,7 +1,13 @@
 import { Router, type Request, type Response, type NextFunction } from "express";
 import { getValidAccessToken } from "../credentials.js";
 import { ping, getUsage } from "../anthropic.js";
-import { schedulePing, listScheduled, cancelScheduled } from "../scheduler.js";
+import {
+  schedulePing,
+  listScheduled,
+  cancelScheduled,
+  getDailyRule,
+  setDailyRule,
+} from "../scheduler.js";
 
 export const pingRouter = Router();
 
@@ -56,6 +62,35 @@ pingRouter.post("/ping", async (req: Request, res: Response, next: NextFunction)
 pingRouter.get("/ping/scheduled", (_req: Request, res: Response) => {
   res.json({ scheduled: listScheduled() });
 });
+
+// GET /ping/daily — current recurring-ping rule (+ computed next_run).
+pingRouter.get("/ping/daily", (_req: Request, res: Response) => {
+  res.json(getDailyRule());
+});
+
+// PUT /ping/daily — set the recurring daily ping.
+//   body: { enabled: boolean, hour: 0-23, minute: 0-59 } (local time)
+// Invalid hour/minute throw ScheduleError -> 400 via the central handler.
+pingRouter.put(
+  "/ping/daily",
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const body = (req.body ?? {}) as {
+        enabled?: unknown;
+        hour?: unknown;
+        minute?: unknown;
+      };
+      const rule = await setDailyRule({
+        enabled: body.enabled,
+        hour: body.hour,
+        minute: body.minute,
+      });
+      res.json(rule);
+    } catch (err) {
+      next(err);
+    }
+  },
+);
 
 pingRouter.delete(
   "/ping/scheduled/:id",

@@ -100,6 +100,24 @@ main {
 
 .card-wide { grid-column: 1 / -1; }
 
+.daily-row { gap: 18px; justify-content: flex-start; }
+.daily-field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.daily-field input[type="time"] {
+  background: var(--card);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 8px;
+  font-size: 13px;
+  color-scheme: dark;
+}
+
 .sched-list { list-style: none; margin: 0; padding: 0; }
 .sched-item {
   display: flex;

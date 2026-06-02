@@ -33,6 +33,8 @@ export const scheduledPingsPath = path.join(
   "scheduled-pings.json",
 );
 
+export const dailyPingPath = path.join(config.dataDir, "daily-ping.json");
+
 // Maximum scheduling horizon for a ping: 3 days.
 export const MAX_SCHEDULE_MS = 3 * 24 * 60 * 60 * 1000;
 
