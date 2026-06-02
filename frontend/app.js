@@ -48,12 +48,17 @@ function renderExtra(extra) {
     return;
   }
   card.hidden = false;
-  const util = extra.utilization ?? 0;
+  // The API reports amounts in minor units (cents) and leaves `utilization`
+  // null, so we convert to the main currency unit and derive the percentage
+  // ourselves against the configured monthly spending limit.
+  const limit = extra.monthly_limit / 100;
+  const used = extra.used_credits / 100;
+  const util = limit > 0 ? Math.round((used / limit) * 100) : 0;
   $("fill-extra").style.width = `${Math.min(100, util)}%`;
   $("fill-extra").style.background = colorFor(util);
   $("util-extra").textContent = `${util}%`;
   $("extra-detail").textContent =
-    `${extra.used_credits} / ${extra.monthly_limit} ${extra.currency}`;
+    `${used.toFixed(2)} / ${limit.toFixed(2)} ${extra.currency}`;
 }
 
 async function loadUsage() {
