@@ -56,13 +56,13 @@ Environment variables (via a `.env` file or the system environment — see `.env
 | `CLAUDE_CONFIG_DIR`        | `~/.claude` | Override the Claude Code config directory.                               |
 | `CLAUDIOMETRO_DATA_DIR`    | `./data`    | Where scheduled pings are persisted.                                     |
 | `CLAUDIOMETRO_ADMIN_TOKEN` | _(empty)_   | Secret for the `/admin/*` endpoints. Empty = admin endpoints disabled (fail-closed). |
+| `CLAUDIOMETRO_POLL_SECONDS`| `30`        | Dashboard auto-refresh interval in seconds. `0` disables it.             |
+| `CLAUDIOMETRO_API_BASE`    | _(empty)_   | Frontend API base URL. Empty = same host serving the page. For another LAN host: `http://192.168.1.50:4317`. |
 
-Frontend (`frontend/config.js`):
-
-| Variable                    | Default | Description                                                          |
-|-----------------------------|---------|----------------------------------------------------------------------|
-| `CLAUDIOMETRO_API_BASE`     | `""`    | API base URL. Empty = same host serving the page. For another LAN host: `"http://192.168.1.50:4317"`. |
-| `CLAUDIOMETRO_POLL_SECONDS` | `30`    | Gauge auto-refresh interval in seconds. `0` disables it.             |
+The frontend reads `CLAUDIOMETRO_POLL_SECONDS` / `CLAUDIOMETRO_API_BASE` through a
+dynamic `/config.js` served from these environment variables, overriding the
+committed `frontend/config.js` (which only acts as a fallback default when the
+page is hosted by some other static server).
 
 ## API
 

@@ -19,6 +19,8 @@ services:
       # Generate a long, random secret and keep it private.
       CLAUDIOMETRO_ADMIN_TOKEN: "${CLAUDIOMETRO_ADMIN_TOKEN:?a CLAUDIOMETRO_ADMIN_TOKEN is required}"
       # DISABLE_REFRESH: "0"
+      # Dashboard auto-refresh interval in seconds (0 disables it). Default: 30.
+      # CLAUDIOMETRO_POLL_SECONDS: "30"
     volumes:
       # .credentials.json lives here (created via remote push or copied by hand).
       - ./config:/config

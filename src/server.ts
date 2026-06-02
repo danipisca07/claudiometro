@@ -36,6 +36,18 @@ app.use(usageRouter);
 app.use(pingRouter);
 app.use(adminRouter);
 
+// Serve the frontend runtime config from environment variables, overriding the
+// static frontend/config.js default. Registered before express.static so the
+// env-driven values take precedence over the committed file.
+app.get("/config.js", (_req: Request, res: Response) => {
+  const body =
+    `window.CLAUDIOMETRO_API_BASE = ${JSON.stringify(config.apiBase)};\n` +
+    `window.CLAUDIOMETRO_POLL_SECONDS = ${config.pollSeconds};\n`;
+  res.type("application/javascript");
+  res.set("Cache-Control", "no-store");
+  res.send(body);
+});
+
 // Serve the static webapp (frontend/) at the root.
 const frontendDir = path.join(
   path.dirname(fileURLToPath(import.meta.url)),
