@@ -8,6 +8,15 @@ function bool(v: string | undefined): boolean {
   return ["1", "true", "yes", "on"].includes(v.toLowerCase());
 }
 
+// Parse a non-negative integer (seconds), falling back to `def` when unset or
+// invalid. Negative/NaN values fall back to the default.
+function seconds(v: string | undefined, def: number): number {
+  if (v === undefined || v.trim() === "") return def;
+  const n = Number(v);
+  if (!Number.isFinite(n) || n < 0) return def;
+  return Math.floor(n);
+}
+
 const moduleDir = path.dirname(fileURLToPath(import.meta.url));
 
 export const config = {
@@ -21,6 +30,11 @@ export const config = {
   // Secret for the /admin/* endpoints (remote credentials upload).
   // Empty = admin endpoints disabled (fail-closed).
   adminToken: process.env.CLAUDIOMETRO_ADMIN_TOKEN || "",
+  // How often (seconds) the webapp polls for fresh gauges. 0 disables
+  // auto-refresh. Served to the frontend via the dynamic /config.js route.
+  pollSeconds: seconds(process.env.CLAUDIOMETRO_POLL_SECONDS, 30),
+  // Frontend API base URL. Empty = same host serving the page.
+  apiBase: process.env.CLAUDIOMETRO_API_BASE || "",
 };
 
 export const credentialsPath = path.join(
