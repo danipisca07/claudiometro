@@ -53,18 +53,15 @@
       </section>
 
       <section class="card card-wide" id="card-daily">
-        <h2>Daily haiku ping</h2>
-        <div class="row daily-row">
-          <label class="daily-field">
-            <input type="checkbox" id="daily-enabled" />
-            <span>Enabled</span>
-          </label>
+        <h2>Daily haiku pings</h2>
+        <ul class="daily-list" id="daily-list"></ul>
+        <div class="row daily-row daily-add-row">
           <label class="daily-field">
             <span>at</span>
-            <input type="time" id="daily-time" value="09:00" />
+            <input type="time" id="daily-new-time" value="09:00" />
           </label>
+          <button id="daily-add">Add daily ping</button>
         </div>
-        <div class="row"><span class="reset" id="daily-info"></span></div>
       </section>
 
       <section class="card card-wide" id="card-scheduled" hidden>

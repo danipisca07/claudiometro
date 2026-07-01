@@ -163,10 +163,7 @@ async function cancelScheduled(id, btn) {
 
 const pad2 = (n) => String(n).padStart(2, "0");
 
-function renderDaily(rule) {
-  $("daily-enabled").checked = !!rule.enabled;
-  $("daily-time").value = `${pad2(rule.hour)}:${pad2(rule.minute)}`;
-  const info = $("daily-info");
+function dailyInfoText(rule) {
   const parts = [];
   if (rule.enabled && rule.next_run) {
     parts.push("next " + fmtDateTime(rule.next_run));
@@ -176,50 +173,136 @@ function renderDaily(rule) {
   if (rule.last_run_at) {
     const last = rule.last_status === "failed" ? "failed" : "sent";
     parts.push(`last ${last} ${fmtDateTime(rule.last_run_at)}`);
-    if (rule.last_status === "failed" && rule.last_error) {
-      info.title = rule.last_error;
-    }
   }
-  info.textContent = parts.join(" · ");
+  return parts.join(" · ");
+}
+
+function renderDailyItem(rule) {
+  const li = document.createElement("li");
+  li.className = "daily-item";
+
+  const field = document.createElement("label");
+  field.className = "daily-field";
+
+  const enabled = document.createElement("input");
+  enabled.type = "checkbox";
+  enabled.checked = !!rule.enabled;
+
+  const time = document.createElement("input");
+  time.type = "time";
+  time.value = `${pad2(rule.hour)}:${pad2(rule.minute)}`;
+
+  const onChange = () => updateDaily(rule.id, enabled.checked, time.value);
+  enabled.addEventListener("change", onChange);
+  time.addEventListener("change", onChange);
+
+  field.append(enabled, time);
+
+  const info = document.createElement("span");
+  info.className = "reset daily-item-info";
+  info.textContent = dailyInfoText(rule);
+  if (rule.last_status === "failed" && rule.last_error) {
+    info.title = rule.last_error;
+  }
+
+  const remove = document.createElement("button");
+  remove.className = "sched-cancel";
+  remove.textContent = "Remove";
+  remove.addEventListener("click", () => deleteDaily(rule.id, remove));
+
+  li.append(field, info, remove);
+  return li;
+}
+
+function renderDailyList(rules) {
+  const ul = $("daily-list");
+  ul.innerHTML = "";
+  if (!rules || rules.length === 0) {
+    const li = document.createElement("li");
+    li.className = "daily-empty reset";
+    li.textContent = "no daily pings";
+    ul.append(li);
+    return;
+  }
+  for (const rule of rules) ul.append(renderDailyItem(rule));
 }
 
 async function loadDaily() {
   try {
     const res = await fetch(`${API_BASE}/ping/daily`);
     if (!res.ok) return;
-    renderDaily(await res.json());
+    const data = await res.json();
+    renderDailyList(data.daily);
   } catch {
     /* non-critical: ignore transient network errors */
   }
 }
 
-async function saveDaily() {
-  const time = $("daily-time").value || "09:00";
+async function addDaily() {
+  const btn = $("daily-add");
+  btn.disabled = true;
+  const time = $("daily-new-time").value || "09:00";
   const [hour, minute] = time.split(":").map((n) => Number(n));
   try {
     const res = await fetch(`${API_BASE}/ping/daily`, {
-      method: "PUT",
+      method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        enabled: $("daily-enabled").checked,
-        hour,
-        minute,
-      }),
+      body: JSON.stringify({ enabled: true, hour, minute }),
     });
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
       throw new Error(body.error || `HTTP ${res.status}`);
     }
     const rule = await res.json();
-    renderDaily(rule);
+    setStatus("daily ping added for " + fmtDateTime(rule.next_run));
+    await loadDaily();
+  } catch (err) {
+    setStatus("daily ping add failed: " + err.message, true);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function updateDaily(id, enabled, time) {
+  const [hour, minute] = (time || "09:00").split(":").map((n) => Number(n));
+  try {
+    const res = await fetch(`${API_BASE}/ping/daily/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ enabled, hour, minute }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.error || `HTTP ${res.status}`);
+    }
+    const rule = await res.json();
     setStatus(
       rule.enabled
         ? "daily ping set for " + fmtDateTime(rule.next_run)
         : "daily ping disabled",
     );
+    await loadDaily();
   } catch (err) {
     setStatus("daily ping update failed: " + err.message, true);
     await loadDaily();
+  }
+}
+
+async function deleteDaily(id, btn) {
+  btn.disabled = true;
+  try {
+    const res = await fetch(`${API_BASE}/ping/daily/${id}`, {
+      method: "DELETE",
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.error || `HTTP ${res.status}`);
+    }
+    setStatus("daily ping removed");
+    await loadDaily();
+  } catch (err) {
+    setStatus("daily ping removal failed: " + err.message, true);
+    btn.disabled = false;
   }
 }
 
@@ -277,8 +360,7 @@ function setScheduleBounds() {
 
 $("refreshBtn").addEventListener("click", loadUsage);
 $("pingBtn").addEventListener("click", doPing);
-$("daily-enabled").addEventListener("change", saveDaily);
-$("daily-time").addEventListener("change", saveDaily);
+$("daily-add").addEventListener("click", addDaily);
 
 $("api-base-label").textContent = "API: " + (API_BASE || "(same host)");
 

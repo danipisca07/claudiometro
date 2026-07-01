@@ -5,8 +5,10 @@ import {
   schedulePing,
   listScheduled,
   cancelScheduled,
-  getDailyRule,
-  setDailyRule,
+  getDailyRules,
+  addDailyRule,
+  updateDailyRule,
+  deleteDailyRule,
 } from "../scheduler.js";
 
 export const pingRouter = Router();
@@ -63,15 +65,15 @@ pingRouter.get("/ping/scheduled", (_req: Request, res: Response) => {
   res.json({ scheduled: listScheduled() });
 });
 
-// GET /ping/daily — current recurring-ping rule (+ computed next_run).
+// GET /ping/daily — all recurring-ping rules (+ computed next_run each).
 pingRouter.get("/ping/daily", (_req: Request, res: Response) => {
-  res.json(getDailyRule());
+  res.json({ daily: getDailyRules() });
 });
 
-// PUT /ping/daily — set the recurring daily ping.
+// POST /ping/daily — add a recurring daily ping.
 //   body: { enabled: boolean, hour: 0-23, minute: 0-59 } (local time)
 // Invalid hour/minute throw ScheduleError -> 400 via the central handler.
-pingRouter.put(
+pingRouter.post(
   "/ping/daily",
   async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -80,12 +82,55 @@ pingRouter.put(
         hour?: unknown;
         minute?: unknown;
       };
-      const rule = await setDailyRule({
+      const rule = await addDailyRule({
         enabled: body.enabled,
         hour: body.hour,
         minute: body.minute,
       });
+      res.status(201).json(rule);
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+// PUT /ping/daily/:id — update an existing recurring daily ping.
+pingRouter.put(
+  "/ping/daily/:id",
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const body = (req.body ?? {}) as {
+        enabled?: unknown;
+        hour?: unknown;
+        minute?: unknown;
+      };
+      const rule = await updateDailyRule(req.params.id, {
+        enabled: body.enabled,
+        hour: body.hour,
+        minute: body.minute,
+      });
+      if (!rule) {
+        res.status(404).json({ error: "Daily ping not found." });
+        return;
+      }
       res.json(rule);
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+// DELETE /ping/daily/:id — remove a recurring daily ping.
+pingRouter.delete(
+  "/ping/daily/:id",
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const ok = await deleteDailyRule(req.params.id);
+      if (!ok) {
+        res.status(404).json({ error: "Daily ping not found." });
+        return;
+      }
+      res.json({ deleted: true, id: req.params.id });
     } catch (err) {
       next(err);
     }

@@ -118,6 +118,19 @@ main {
   color-scheme: dark;
 }
 
+.daily-list { list-style: none; margin: 0 0 12px; padding: 0; }
+.daily-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+.daily-item:last-child { border-bottom: none; }
+.daily-item-info { flex: 1; }
+.daily-empty { padding: 8px 0; }
+.daily-add-row { margin-top: 0; }
+
 .sched-list { list-style: none; margin: 0; padding: 0; }
 .sched-item {
   display: flex;

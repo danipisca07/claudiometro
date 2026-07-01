@@ -120,15 +120,17 @@ export async function initScheduler(): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
-// Recurring daily ping
+// Recurring daily pings
 //
-// A single self-rearming timer that fires a ping every day at a local HH:MM.
-// The rule is persisted to data/daily-ping.json. Unlike one-shot pings, a daily
-// run missed while the server was down is simply skipped; the next occurrence
-// is armed on startup.
+// Any number of daily rules can be configured; each is a self-rearming timer
+// that fires a ping every day at a local HH:MM. Rules are persisted to
+// data/daily-ping.json as an array. Unlike one-shot pings, a daily run missed
+// while the server was down is simply skipped; the next occurrence is armed on
+// startup.
 // ---------------------------------------------------------------------------
 
 export interface DailyRule {
+  id: string;
   enabled: boolean;
   hour: number; // 0–23, local time
   minute: number; // 0–59, local time
@@ -141,8 +143,8 @@ export interface DailyRuleView extends DailyRule {
   next_run?: string;
 }
 
-let dailyRule: DailyRule = { enabled: false, hour: 9, minute: 0 };
-let dailyTimer: NodeJS.Timeout | null = null;
+let dailyRules: DailyRule[] = [];
+const dailyTimers = new Map<string, NodeJS.Timeout>();
 
 function computeNextDailyRun(hour: number, minute: number): Date {
   const next = new Date();
@@ -153,61 +155,10 @@ function computeNextDailyRun(hour: number, minute: number): Date {
   return next;
 }
 
-async function persistDaily(): Promise<void> {
-  await mkdir(config.dataDir, { recursive: true });
-  const tmp = `${dailyPingPath}.tmp`;
-  await writeFile(tmp, JSON.stringify(dailyRule, null, 2), "utf8");
-  await rename(tmp, dailyPingPath);
-}
-
-async function runDailyPing(): Promise<void> {
-  try {
-    const token = await getValidAccessToken();
-    const result = await ping(token);
-    dailyRule.last_status = "done";
-    dailyRule.last_error = undefined;
-    void result;
-  } catch (err) {
-    dailyRule.last_status = "failed";
-    dailyRule.last_error = err instanceof Error ? err.message : String(err);
-  }
-  dailyRule.last_run_at = new Date().toISOString();
-  await persistDaily();
-}
-
-function armDaily(): void {
-  if (dailyTimer) {
-    clearTimeout(dailyTimer);
-    dailyTimer = null;
-  }
-  if (!dailyRule.enabled) return;
-  const delay = Math.max(
-    0,
-    computeNextDailyRun(dailyRule.hour, dailyRule.minute).getTime() - Date.now(),
-  );
-  const t = setTimeout(() => {
-    void runDailyPing().finally(() => armDaily());
-  }, delay);
-  if (typeof t.unref === "function") t.unref();
-  dailyTimer = t;
-}
-
-export function getDailyRule(): DailyRuleView {
-  const view: DailyRuleView = { ...dailyRule };
-  if (dailyRule.enabled) {
-    view.next_run = computeNextDailyRun(
-      dailyRule.hour,
-      dailyRule.minute,
-    ).toISOString();
-  }
-  return view;
-}
-
-export async function setDailyRule(input: {
-  enabled: unknown;
-  hour: unknown;
-  minute: unknown;
-}): Promise<DailyRuleView> {
+function parseHourMinute(input: { hour: unknown; minute: unknown }): {
+  hour: number;
+  minute: number;
+} {
   const hour = Number(input.hour);
   const minute = Number(input.minute);
   if (!Number.isInteger(hour) || hour < 0 || hour > 23) {
@@ -216,32 +167,141 @@ export async function setDailyRule(input: {
   if (!Number.isInteger(minute) || minute < 0 || minute > 59) {
     throw new ScheduleError("'minute' must be an integer between 0 and 59.");
   }
-  dailyRule = {
-    ...dailyRule,
+  return { hour, minute };
+}
+
+function toDailyView(rule: DailyRule): DailyRuleView {
+  const view: DailyRuleView = { ...rule };
+  if (rule.enabled) {
+    view.next_run = computeNextDailyRun(rule.hour, rule.minute).toISOString();
+  }
+  return view;
+}
+
+async function persistDaily(): Promise<void> {
+  await mkdir(config.dataDir, { recursive: true });
+  const tmp = `${dailyPingPath}.tmp`;
+  await writeFile(tmp, JSON.stringify(dailyRules, null, 2), "utf8");
+  await rename(tmp, dailyPingPath);
+}
+
+async function runDailyPing(id: string): Promise<void> {
+  const rule = dailyRules.find((r) => r.id === id);
+  if (!rule) return;
+  try {
+    const token = await getValidAccessToken();
+    await ping(token);
+    rule.last_status = "done";
+    rule.last_error = undefined;
+  } catch (err) {
+    rule.last_status = "failed";
+    rule.last_error = err instanceof Error ? err.message : String(err);
+  }
+  rule.last_run_at = new Date().toISOString();
+  await persistDaily();
+}
+
+function armDaily(rule: DailyRule): void {
+  const existing = dailyTimers.get(rule.id);
+  if (existing) {
+    clearTimeout(existing);
+    dailyTimers.delete(rule.id);
+  }
+  if (!rule.enabled) return;
+  const delay = Math.max(
+    0,
+    computeNextDailyRun(rule.hour, rule.minute).getTime() - Date.now(),
+  );
+  const t = setTimeout(() => {
+    void runDailyPing(rule.id).finally(() => {
+      // The rule may have been deleted or disabled while the ping was running.
+      const current = dailyRules.find((r) => r.id === rule.id);
+      if (current && current.enabled) armDaily(current);
+    });
+  }, delay);
+  if (typeof t.unref === "function") t.unref();
+  dailyTimers.set(rule.id, t);
+}
+
+export function getDailyRules(): DailyRuleView[] {
+  return dailyRules.map(toDailyView);
+}
+
+export async function addDailyRule(input: {
+  enabled: unknown;
+  hour: unknown;
+  minute: unknown;
+}): Promise<DailyRuleView> {
+  const { hour, minute } = parseHourMinute(input);
+  const rule: DailyRule = {
+    id: randomUUID(),
     enabled: Boolean(input.enabled),
     hour,
     minute,
   };
+  dailyRules.push(rule);
   await persistDaily();
-  armDaily();
-  return getDailyRule();
+  armDaily(rule);
+  return toDailyView(rule);
+}
+
+export async function updateDailyRule(
+  id: string,
+  input: { enabled: unknown; hour: unknown; minute: unknown },
+): Promise<DailyRuleView | null> {
+  const rule = dailyRules.find((r) => r.id === id);
+  if (!rule) return null;
+  const { hour, minute } = parseHourMinute(input);
+  rule.enabled = Boolean(input.enabled);
+  rule.hour = hour;
+  rule.minute = minute;
+  await persistDaily();
+  armDaily(rule);
+  return toDailyView(rule);
+}
+
+export async function deleteDailyRule(id: string): Promise<boolean> {
+  const idx = dailyRules.findIndex((r) => r.id === id);
+  if (idx === -1) return false;
+  const t = dailyTimers.get(id);
+  if (t) {
+    clearTimeout(t);
+    dailyTimers.delete(id);
+  }
+  dailyRules.splice(idx, 1);
+  await persistDaily();
+  return true;
+}
+
+function normalizeStoredRule(stored: unknown): DailyRule | null {
+  if (!stored || typeof stored !== "object") return null;
+  const s = stored as Partial<DailyRule>;
+  return {
+    id: typeof s.id === "string" && s.id ? s.id : randomUUID(),
+    enabled: Boolean(s.enabled),
+    hour: Number.isInteger(s.hour) ? (s.hour as number) : 9,
+    minute: Number.isInteger(s.minute) ? (s.minute as number) : 0,
+    last_run_at: s.last_run_at,
+    last_status: s.last_status,
+    last_error: s.last_error,
+  };
 }
 
 export async function initDailyPing(): Promise<void> {
   try {
-    const stored = JSON.parse(
-      fs.readFileSync(dailyPingPath, "utf8"),
-    ) as Partial<DailyRule>;
-    dailyRule = {
-      enabled: Boolean(stored.enabled),
-      hour: Number.isInteger(stored.hour) ? (stored.hour as number) : 9,
-      minute: Number.isInteger(stored.minute) ? (stored.minute as number) : 0,
-      last_run_at: stored.last_run_at,
-      last_status: stored.last_status,
-      last_error: stored.last_error,
-    };
+    const stored = JSON.parse(fs.readFileSync(dailyPingPath, "utf8")) as unknown;
+    if (Array.isArray(stored)) {
+      dailyRules = stored
+        .map(normalizeStoredRule)
+        .filter((r): r is DailyRule => r !== null);
+    } else {
+      // Migrate the legacy single-object format to a one-element array.
+      const migrated = normalizeStoredRule(stored);
+      dailyRules = migrated ? [migrated] : [];
+    }
   } catch {
-    dailyRule = { enabled: false, hour: 9, minute: 0 };
+    dailyRules = [];
   }
-  armDaily();
+  for (const rule of dailyRules) armDaily(rule);
+  await persistDaily();
 }
