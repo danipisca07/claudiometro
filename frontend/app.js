@@ -11,8 +11,10 @@ function setStatus(msg, isError) {
 
 function fmtReset(seconds) {
   if (seconds == null) return "resets --";
-  const h = Math.floor(seconds / 3600);
+  const d = Math.floor(seconds / 86400);
+  const h = Math.floor((seconds % 86400) / 3600);
   const m = Math.floor((seconds % 3600) / 60);
+  if (d > 0) return `resets in ${d}d ${h}h ${m}m`;
   if (h > 0) return `resets in ${h}h ${m}m`;
   if (m > 0) return `resets in ${m}m`;
   return "resetting soon";
