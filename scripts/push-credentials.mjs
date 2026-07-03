@@ -11,6 +11,7 @@
 //
 // It never prints the tokens: only the outcome (expiresAt, scopes).
 
+import "dotenv/config";
 import { readFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
