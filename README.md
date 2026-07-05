@@ -56,6 +56,7 @@ Environment variables (via a `.env` file or the system environment — see `.env
 | `CLAUDE_CONFIG_DIR`        | `~/.claude` | Override the Claude Code config directory.                               |
 | `CLAUDIOMETRO_DATA_DIR`    | `./data`    | Where scheduled pings are persisted.                                     |
 | `CLAUDIOMETRO_ADMIN_TOKEN` | _(empty)_   | Secret for the `/admin/*` endpoints. Empty = admin endpoints disabled (fail-closed). |
+| `CLAUDIOMETRO_REMOTE_HOST` | _(empty)_   | Remote host URL for credential push (used by `scripts/push-credentials.mjs` if no URL is passed as argument). Example: `http://NAS:4317`. |
 | `CLAUDIOMETRO_POLL_SECONDS`| `30`        | Dashboard auto-refresh interval in seconds. `0` disables it.             |
 | `CLAUDIOMETRO_API_BASE`    | _(empty)_   | Frontend API base URL. Empty = same host serving the page. For another LAN host: `http://192.168.1.50:4317`. |
 
@@ -166,7 +167,11 @@ Two bind-mounts are used:
 After logging in with the Claude Code CLI on your PC, run:
 
 ```bash
+# Option 1: Pass host URL and token as arguments
 node scripts/push-credentials.mjs http://HOST:4317 <CLAUDIOMETRO_ADMIN_TOKEN>
+
+# Option 2: Use environment variables (set CLAUDIOMETRO_REMOTE_HOST and CLAUDIOMETRO_ADMIN_TOKEN)
+node scripts/push-credentials.mjs
 ```
 
 The script reads `~/.claude/.credentials.json` (or `CLAUDE_CONFIG_DIR`) and does
@@ -176,6 +181,15 @@ you push, the container has no credentials (`/usage` → `401`,
 `/admin/credentials/status` → `{ present: false }`); the bind-mount only **persists** them
 across restarts. When credentials stop working (refresh expired/rotated), just re-run the
 script.
+
+**Using environment variables** (recommended for repeatability):
+
+1. Set `CLAUDIOMETRO_REMOTE_HOST` and `CLAUDIOMETRO_ADMIN_TOKEN` in your `.env` file or
+   shell environment.
+2. Run the script without arguments:
+   ```bash
+   node scripts/push-credentials.mjs
+   ```
 
 ### Try it locally (no remote host)
 

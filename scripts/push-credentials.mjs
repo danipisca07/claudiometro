@@ -3,11 +3,12 @@
 // claudiometro instance (e.g. the container on the NAS).
 //
 // Usage:
-//   node scripts/push-credentials.mjs http://NAS:4317 [admin-token]
+//   node scripts/push-credentials.mjs [host-url] [admin-token]
 //
-// The admin token can be passed as the 2nd argument or via the env var
-// CLAUDIOMETRO_ADMIN_TOKEN. The credentials file is read from
-// CLAUDE_CONFIG_DIR/.credentials.json (default ~/.claude/.credentials.json).
+// If host-url is omitted, it's read from CLAUDIOMETRO_REMOTE_HOST.
+// The admin token can be passed as the 2nd argument or via CLAUDIOMETRO_ADMIN_TOKEN.
+// The credentials file is read from CLAUDE_CONFIG_DIR/.credentials.json
+// (default ~/.claude/.credentials.json).
 //
 // It never prints the tokens: only the outcome (expiresAt, scopes).
 
@@ -21,13 +22,15 @@ function fail(msg) {
   process.exit(1);
 }
 
-const base = (process.argv[2] || "").replace(/\/$/, "");
+const base = (process.argv[2] || process.env.CLAUDIOMETRO_REMOTE_HOST || "").replace(/\/$/, "");
 const token = process.argv[3] || process.env.CLAUDIOMETRO_ADMIN_TOKEN || "";
 
 if (!base) {
   fail(
     "missing destination URL.\n" +
-      "Usage: node scripts/push-credentials.mjs http://NAS:4317 [admin-token]",
+      "Usage: node scripts/push-credentials.mjs [host-url] [admin-token]\n" +
+      "       host-url can be passed as argument or via CLAUDIOMETRO_REMOTE_HOST env var\n" +
+      "       admin-token can be passed as argument or via CLAUDIOMETRO_ADMIN_TOKEN env var",
   );
 }
 if (!token) {
